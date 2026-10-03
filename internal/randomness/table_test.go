@@ -4,7 +4,7 @@ import "testing"
 
 func TestDefaultTableReturnsValidDieResult(t *testing.T) {
 	table := NewTable()
-	result, err := table.PseudoRandom(20)
+	result, err := table.PseudoRandom.Roll(20)
 	if err != nil {
 		t.Fatalf("PseudoRandom() error = %v", err)
 	}

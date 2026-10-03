@@ -20,10 +20,11 @@ var (
 )
 
 type DiceGroup struct {
-	Count       int
-	Sides       int
-	Results     []int
-	Rolledvalue int
+	Count              int
+	Sides              int
+	Results            []int
+	Rolledvalue        int
+	SourceDescriptions []string
 }
 
 func ParseExpression(expression string) ([]DiceGroup, error) {

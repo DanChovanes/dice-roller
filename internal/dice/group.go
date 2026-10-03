@@ -17,14 +17,14 @@ func (group *DiceGroup) Roll(table randomness.Table) error {
 	if group.Count <= 0 || !isSupportedDieSize(uint64(group.Sides)) {
 		return ErrInvalidExpression
 	}
-	if table.PseudoRandom == nil {
+	if table.PseudoRandom.Roll == nil {
 		return randomness.ErrSourceUnavailable
 	}
 
 	results := make([]int, 0, group.Count)
 	total := 0
 	for range group.Count {
-		result, err := table.PseudoRandom(group.Sides)
+		result, err := table.PseudoRandom.Roll(group.Sides)
 		if err != nil {
 			return fmt.Errorf("pseudo-random source: %w", err)
 		}
@@ -37,5 +37,9 @@ func (group *DiceGroup) Roll(table randomness.Table) error {
 
 	group.Results = results
 	group.Rolledvalue = total
+	group.SourceDescriptions = make([]string, group.Count)
+	for index := range group.SourceDescriptions {
+		group.SourceDescriptions[index] = table.PseudoRandom.Description
+	}
 	return nil
 }

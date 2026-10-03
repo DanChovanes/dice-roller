@@ -7,7 +7,10 @@ import (
 
 var ErrSourceUnavailable = errors.New("randomness source is unavailable")
 
-type Source func(sides int) (int, error)
+type Source struct {
+	Description string
+	Roll        func(sides int) (int, error)
+}
 
 type Table struct {
 	PseudoRandom Source
@@ -15,8 +18,11 @@ type Table struct {
 
 func NewTable() Table {
 	return Table{
-		PseudoRandom: func(sides int) (int, error) {
-			return rand.Intn(sides) + 1, nil
+		PseudoRandom: Source{
+			Description: "Go math/rand pseudo-random generator (non-cryptographic)",
+			Roll: func(sides int) (int, error) {
+				return rand.Intn(sides) + 1, nil
+			},
 		},
 	}
 }

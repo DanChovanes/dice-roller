@@ -13,13 +13,16 @@ func TestDiceGroupRollStoresResultsAndTotal(t *testing.T) {
 	results := []int{2, 5, 1, 4}
 	resultIndex := 0
 	table := randomness.Table{
-		PseudoRandom: func(sides int) (int, error) {
-			if sides != 6 {
-				t.Fatalf("source received sides = %d, want 6", sides)
-			}
-			result := results[resultIndex]
-			resultIndex++
-			return result, nil
+		PseudoRandom: randomness.Source{
+			Description: "deterministic test source",
+			Roll: func(sides int) (int, error) {
+				if sides != 6 {
+					t.Fatalf("source received sides = %d, want 6", sides)
+				}
+				result := results[resultIndex]
+				resultIndex++
+				return result, nil
+			},
 		},
 	}
 
@@ -32,18 +35,24 @@ func TestDiceGroupRollStoresResultsAndTotal(t *testing.T) {
 	if group.Rolledvalue != 12 {
 		t.Fatalf("Rolledvalue = %d, want 12", group.Rolledvalue)
 	}
+	if !reflect.DeepEqual(group.SourceDescriptions, []string{"deterministic test source", "deterministic test source", "deterministic test source", "deterministic test source"}) {
+		t.Fatalf("SourceDescriptions = %v", group.SourceDescriptions)
+	}
 }
 
 func TestDiceGroupRollDoesNotStorePartialResultsOnSourceFailure(t *testing.T) {
 	group := DiceGroup{Count: 2, Sides: 6, Results: []int{3}, Rolledvalue: 3}
 	callCount := 0
 	table := randomness.Table{
-		PseudoRandom: func(int) (int, error) {
-			callCount++
-			if callCount == 2 {
-				return 0, errors.New("source failed")
-			}
-			return 4, nil
+		PseudoRandom: randomness.Source{
+			Description: "failing test source",
+			Roll: func(int) (int, error) {
+				callCount++
+				if callCount == 2 {
+					return 0, errors.New("source failed")
+				}
+				return 4, nil
+			},
 		},
 	}
 
@@ -58,7 +67,10 @@ func TestDiceGroupRollDoesNotStorePartialResultsOnSourceFailure(t *testing.T) {
 func TestDiceGroupRollRejectsInvalidSourceResult(t *testing.T) {
 	group := DiceGroup{Count: 1, Sides: 6}
 	table := randomness.Table{
-		PseudoRandom: func(int) (int, error) { return 7, nil },
+		PseudoRandom: randomness.Source{
+			Description: "invalid test source",
+			Roll:        func(int) (int, error) { return 7, nil },
+		},
 	}
 
 	if err := group.Roll(table); !errors.Is(err, ErrInvalidDieResult) {
