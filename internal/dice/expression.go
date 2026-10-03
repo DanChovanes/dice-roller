@@ -21,11 +21,22 @@ var (
 
 type DiceGroup struct {
 	Count              int
-	Sides              int
+	Modifier           string
+	Advantage          Advantage
 	Results            []int
+	KeptResult         int
 	Rolledvalue        int
+	Sides              int
 	SourceDescriptions []string
 }
+
+type Advantage string
+
+const (
+	NoAdvantage    Advantage = ""
+	AdvantageOn    Advantage = "advantage"
+	DisadvantageOn Advantage = "disadvantage"
+)
 
 func ParseExpression(expression string) ([]DiceGroup, error) {
 	input := strings.ToLower(strings.TrimSpace(expression))
@@ -102,7 +113,7 @@ func splitTerms(input string) ([]string, error) {
 
 func parseTerm(term string) (DiceGroup, error) {
 	separator := strings.IndexByte(term, 'd')
-	if separator < 0 || separator != strings.LastIndexByte(term, 'd') {
+	if separator < 0 {
 		return DiceGroup{}, ErrInvalidExpression
 	}
 
@@ -115,7 +126,12 @@ func parseTerm(term string) (DiceGroup, error) {
 		count = parsedCount
 	}
 
-	sides, err := parsePositiveDecimal(term[separator+1:])
+	remainder := term[separator+1:]
+	sidesEnd := 0
+	for sidesEnd < len(remainder) && remainder[sidesEnd] >= '0' && remainder[sidesEnd] <= '9' {
+		sidesEnd++
+	}
+	sides, err := parsePositiveDecimal(remainder[:sidesEnd])
 	if err != nil || !isSupportedDieSize(sides) {
 		return DiceGroup{}, ErrInvalidExpression
 	}
@@ -123,7 +139,64 @@ func parseTerm(term string) (DiceGroup, error) {
 		return DiceGroup{}, ErrTooManyDice
 	}
 
-	return DiceGroup{Count: int(count), Sides: int(sides)}, nil
+	group := DiceGroup{Count: int(count), Sides: int(sides)}
+	suffix := remainder[sidesEnd:]
+	if strings.HasPrefix(suffix, "adv") || strings.HasPrefix(suffix, "dis") {
+		group.Advantage, suffix = parseAdvantage(suffix)
+	}
+	if strings.HasPrefix(suffix, "+") || strings.HasPrefix(suffix, "-") {
+		modifierEnd := 1
+		for modifierEnd < len(suffix) && suffix[modifierEnd] >= '0' && suffix[modifierEnd] <= '9' {
+			modifierEnd++
+		}
+		modifier, err := parseModifier(suffix[:modifierEnd])
+		if err != nil {
+			return DiceGroup{}, err
+		}
+		group.Modifier = modifier
+		suffix = suffix[modifierEnd:]
+		if group.Advantage == NoAdvantage {
+			group.Advantage, suffix = parseAdvantage(suffix)
+		}
+	}
+	if suffix != "" {
+		return DiceGroup{}, ErrInvalidExpression
+	}
+
+	if group.Advantage != NoAdvantage && (group.Sides != 20 || group.Count != 1) {
+		return DiceGroup{}, ErrInvalidExpression
+	}
+	return group, nil
+}
+
+func parseModifier(value string) (string, error) {
+	if len(value) < 2 || (value[0] != '+' && value[0] != '-') {
+		return "", ErrInvalidExpression
+	}
+	for _, character := range value[1:] {
+		if character < '0' || character > '9' {
+			return "", ErrInvalidExpression
+		}
+	}
+
+	modifier, err := strconv.ParseInt(value, 10, 64)
+	if err != nil {
+		return "", ErrInvalidExpression
+	}
+	if modifier > 0 {
+		return "+" + strconv.FormatInt(modifier, 10), nil
+	}
+	return strconv.FormatInt(modifier, 10), nil
+}
+
+func parseAdvantage(value string) (Advantage, string) {
+	if strings.HasPrefix(value, "adv") {
+		return AdvantageOn, value[len("adv"):]
+	}
+	if strings.HasPrefix(value, "dis") {
+		return DisadvantageOn, value[len("dis"):]
+	}
+	return NoAdvantage, value
 }
 
 func parsePositiveDecimal(value string) (uint64, error) {

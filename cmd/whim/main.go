@@ -51,7 +51,15 @@ func run(args []string, table randomness.Table, stdout, stderr io.Writer) int {
 
 	for index := range groups {
 		group := &groups[index]
-		fmt.Fprintf(stdout, "group %d: %s results=%v total=%d\n", index+1, group, group.Results, group.Rolledvalue)
+		modifierOutput := ""
+		if group.Modifier != "" {
+			modifierOutput = fmt.Sprintf(" Modifier=%s", group.Modifier)
+		}
+		if group.Advantage == dice.NoAdvantage {
+			fmt.Fprintf(stdout, "group %d: %s%s results=%v total=%d\n", index+1, group, modifierOutput, group.Results, group.Rolledvalue)
+		} else {
+			fmt.Fprintf(stdout, "group %d: %s%s results=%v kept=%d total=%d\n", index+1, group, modifierOutput, group.Results, group.KeptResult, group.Rolledvalue)
+		}
 	}
 	if *showInformation {
 		for _, description := range usedSourceDescriptions(groups) {

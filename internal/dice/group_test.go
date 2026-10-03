@@ -77,3 +77,75 @@ func TestDiceGroupRollRejectsInvalidSourceResult(t *testing.T) {
 		t.Fatalf("Roll() error = %v, want %v", err, ErrInvalidDieResult)
 	}
 }
+
+func TestDiceGroupRollAddsModifierToAllDiceTotal(t *testing.T) {
+	group := DiceGroup{Count: 2, Sides: 4, Modifier: "-3"}
+	results := []int{4, 2}
+	resultIndex := 0
+	table := randomness.Table{PseudoRandom: randomness.Source{
+		Description: "deterministic test source",
+		Roll: func(int) (int, error) {
+			result := results[resultIndex]
+			resultIndex++
+			return result, nil
+		},
+	}}
+
+	if err := group.Roll(table); err != nil {
+		t.Fatalf("Roll() error = %v", err)
+	}
+	if group.Rolledvalue != 3 {
+		t.Fatalf("Rolledvalue = %d, want 3", group.Rolledvalue)
+	}
+}
+
+func TestDiceGroupRollAdvantageKeepsHigherD20(t *testing.T) {
+	group := DiceGroup{Count: 1, Sides: 20, Modifier: "+8", Advantage: AdvantageOn}
+	results := []int{4, 17}
+	resultIndex := 0
+	table := randomness.Table{PseudoRandom: randomness.Source{
+		Description: "deterministic test source",
+		Roll: func(sides int) (int, error) {
+			if sides != 20 {
+				t.Fatalf("source received sides = %d, want 20", sides)
+			}
+			result := results[resultIndex]
+			resultIndex++
+			return result, nil
+		},
+	}}
+
+	if err := group.Roll(table); err != nil {
+		t.Fatalf("Roll() error = %v", err)
+	}
+	if !reflect.DeepEqual(group.Results, results) {
+		t.Fatalf("Results = %v, want both rolls %v", group.Results, results)
+	}
+	if group.KeptResult != 17 || group.Rolledvalue != 25 {
+		t.Fatalf("KeptResult=%d Rolledvalue=%d, want kept 17 total 25", group.KeptResult, group.Rolledvalue)
+	}
+}
+
+func TestDiceGroupRollDisadvantageKeepsLowerD20(t *testing.T) {
+	group := DiceGroup{Count: 1, Sides: 20, Modifier: "-1", Advantage: DisadvantageOn}
+	results := []int{18, 5}
+	resultIndex := 0
+	table := randomness.Table{PseudoRandom: randomness.Source{
+		Description: "deterministic test source",
+		Roll: func(int) (int, error) {
+			result := results[resultIndex]
+			resultIndex++
+			return result, nil
+		},
+	}}
+
+	if err := group.Roll(table); err != nil {
+		t.Fatalf("Roll() error = %v", err)
+	}
+	if !reflect.DeepEqual(group.Results, results) {
+		t.Fatalf("Results = %v, want both rolls %v", group.Results, results)
+	}
+	if group.KeptResult != 5 || group.Rolledvalue != 4 {
+		t.Fatalf("KeptResult=%d Rolledvalue=%d, want kept 5 total 4", group.KeptResult, group.Rolledvalue)
+	}
+}
