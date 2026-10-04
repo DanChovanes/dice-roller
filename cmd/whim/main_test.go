@@ -5,6 +5,7 @@ import (
 	"strings"
 	"testing"
 
+	"so-random/internal/dice"
 	"so-random/internal/randomness"
 )
 
@@ -24,9 +25,15 @@ func TestRunAcceptsExpressionArgumentsAndShowsSourceInformation(t *testing.T) {
 	}
 	output := stdout.String()
 	for _, expected := range []string{
-		"group 1: 2d6+3 Modifier=+3 results=[1 1] total=5",
-		"group 2: 1d8 results=[1] total=1",
-		"randomness source: test pseudo-random source",
+		"The dice have spoken!",
+		"1. 2d6+3",
+		"rolls: [1] [1]",
+		"modifier: +3",
+		"TOTAL: 5",
+		"2. 1d8",
+		"TOTAL: 1",
+		"A whisper from the source:",
+		"test pseudo-random source",
 	} {
 		if !strings.Contains(output, expected) {
 			t.Errorf("output %q does not contain %q", output, expected)
@@ -95,11 +102,101 @@ func TestRunShowsBothAdvantageRollsKeptValueAndModifier(t *testing.T) {
 	}
 	output := stdout.String()
 	for _, expected := range []string{
-		"1d20adv+8 Modifier=+8 results=[4 17] kept=17 total=25",
-		"1d20dis-1 Modifier=-1 results=[18 5] kept=5 total=4",
+		"1d20adv+8",
+		"rolls: [4] (discarded) [17] (kept)",
+		"kept: 17 (advantage)",
+		"modifier: +8",
+		"TOTAL: 25",
+		"1d20dis-1",
+		"rolls: [18] (discarded) [5] (kept)",
+		"kept: 5 (disadvantage)",
+		"modifier: -1",
+		"TOTAL: 4",
 	} {
 		if !strings.Contains(output, expected) {
 			t.Errorf("output %q does not contain %q", output, expected)
 		}
+	}
+}
+
+func TestRunColorModeControlsANSIOutput(t *testing.T) {
+	for _, test := range []struct {
+		name      string
+		mode      string
+		wantColor bool
+	}{
+		{name: "always", mode: "always", wantColor: true},
+		{name: "never", mode: "never", wantColor: false},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			var stdout bytes.Buffer
+			var stderr bytes.Buffer
+			code := run([]string{"--color=" + test.mode, "d6"}, randomness.NewTable(), &stdout, &stderr)
+			if code != 0 {
+				t.Fatalf("run() = %d, stderr=%q", code, stderr.String())
+			}
+			gotColor := strings.Contains(stdout.String(), "\x1b[")
+			if gotColor != test.wantColor {
+				t.Errorf("ANSI output = %t, want %t; output=%q", gotColor, test.wantColor, stdout.String())
+			}
+		})
+	}
+}
+
+func TestColorEnabledPolicy(t *testing.T) {
+	for _, test := range []struct {
+		name     string
+		mode     string
+		terminal bool
+		noColor  bool
+		want     bool
+	}{
+		{name: "auto terminal", mode: "auto", terminal: true, want: true},
+		{name: "auto redirected", mode: "auto", want: false},
+		{name: "auto honors NO_COLOR", mode: "auto", terminal: true, noColor: true, want: false},
+		{name: "always overrides NO_COLOR", mode: "always", noColor: true, want: true},
+		{name: "never", mode: "never", terminal: true, want: false},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			if got := colorEnabled(test.mode, test.terminal, test.noColor); got != test.want {
+				t.Errorf("colorEnabled() = %t, want %t", got, test.want)
+			}
+		})
+	}
+}
+
+func TestFormatRollsMarksAdvantageTies(t *testing.T) {
+	group := dice.DiceGroup{
+		Advantage:  dice.AdvantageOn,
+		KeptResult: 17,
+		Results:    []int{17, 17},
+	}
+	if got, want := formatRolls(group, false), "[17] (kept) [17] (tied)"; got != want {
+		t.Errorf("formatRolls() = %q, want %q", got, want)
+	}
+}
+
+func TestRunCanColorErrorsWhenForced(t *testing.T) {
+	var stdout bytes.Buffer
+	var stderr bytes.Buffer
+	table := randomness.Table{}
+	code := run([]string{"--color=always", "d6"}, table, &stdout, &stderr)
+	if code == 0 {
+		t.Fatal("run() = 0, want source error")
+	}
+	if !strings.Contains(stderr.String(), "\x1b[1;31merror:") {
+		t.Fatalf("stderr = %q, want colored error prefix", stderr.String())
+	}
+}
+
+func TestRunRejectsUnknownColorMode(t *testing.T) {
+	var stdout bytes.Buffer
+	var stderr bytes.Buffer
+	code := run([]string{"--color=bright", "d6"}, randomness.NewTable(), &stdout, &stderr)
+	if code == 0 {
+		t.Fatal("run() = 0, want invalid color mode error")
+	}
+	if !strings.Contains(stderr.String(), "invalid color mode") {
+		t.Fatalf("stderr = %q, want invalid color mode error", stderr.String())
 	}
 }
