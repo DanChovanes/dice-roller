@@ -54,6 +54,37 @@ func TestRunRequiresExpression(t *testing.T) {
 	}
 }
 
+func TestRunHelpShowsQuickStartAndNotation(t *testing.T) {
+	for _, helpFlag := range []string{"--help", "-h"} {
+		t.Run(helpFlag, func(t *testing.T) {
+			var stdout bytes.Buffer
+			var stderr bytes.Buffer
+
+			code := run([]string{helpFlag}, randomness.Table{}, &stdout, &stderr)
+			if code != 0 {
+				t.Fatalf("run() = %d, want 0; stderr=%q", code, stderr.String())
+			}
+			for _, expected := range []string{
+				"Usage: whim [OPTIONS] DICE...",
+				"QUICK START",
+				"whim d20",
+				"whim 4d6+2",
+				"DICE NOTATION",
+				"adv / dis",
+				"Dice sizes:",
+				"--color MODE",
+			} {
+				if !strings.Contains(stdout.String(), expected) {
+					t.Errorf("help output %q does not contain %q", stdout.String(), expected)
+				}
+			}
+			if stderr.Len() != 0 {
+				t.Errorf("stderr = %q, want empty", stderr.String())
+			}
+		})
+	}
+}
+
 func TestRunDoesNotPrintPartialBatchOnSourceFailure(t *testing.T) {
 	callCount := 0
 	table := randomness.Table{
