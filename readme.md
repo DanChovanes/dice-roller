@@ -93,7 +93,7 @@ A whisper from the source:
 
 ## Notes
 
-The default source is Go's `math/rand` pseudo-random generator. It is useful for simple local rolls, but it is not cryptographically secure and should not be used where unpredictability is security-critical.
+The default source is Go's `math/rand` pseudo-random generator. It is useful for simple local rolls, but isn't really **fun**, ya know? 
 
 ## License
 
