@@ -1,15 +1,18 @@
 version: 2
+project_name: whim
 
 builds:
-  - # main: ./cmd/myapp              # uncomment if main package isn't in the repo root
+  - main: ./cmd/whim
     env: [CGO_ENABLED=0]
     goos: [linux, windows, darwin, freebsd]
     goarch: [amd64, arm64, arm]
+    ignore:
+      - goos: darwin
+        goarch: arm
+      - goos: windows
+        goarch: arm
     goarm: ["7"]                     # 32-bit ARM (e.g. older Raspberry Pis)
     flags: [-trimpath]
-    # Overriding ldflags replaces GoReleaser's defaults, so the version
-    # variables are re-added here. Declare them in package main:
-    #   var version, commit, date string
     ldflags:
       - -s -w
       - -X main.version={{.Version}}

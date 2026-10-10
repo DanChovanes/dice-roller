@@ -11,6 +11,8 @@ import (
 	"so-random/internal/randomness"
 )
 
+var version, commit, date string
+
 func main() {
 	os.Exit(run(os.Args[1:], randomness.NewTable(), os.Stdout, os.Stderr))
 }
